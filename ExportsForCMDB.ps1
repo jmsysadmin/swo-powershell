@@ -8,7 +8,19 @@
 	===========================================================================
 	.DESCRIPTION
 		This script connects to Solarwinds Orion to pull out information that 
-		can be imported into a CMDB in csv files.
+		can be imported into a CMDB in csv files in the directory where the 
+		script is.
+.EXAMPLE
+	powershell .\ExportsForCMDB.ps1
+	powershell .\ExportsForCMDB.ps1 -NoNCM -NoVMan
+
+
+.PARAMETER 
+	-NoNCM
+		Skip exports for Network Devices if you do not have the Network Configuration Manager Orion Module.
+	-NoVMAN
+		Skip exports for VMware if you do not have the Virtualization Manager Orion Module.
+
 #>
 
 Param (
