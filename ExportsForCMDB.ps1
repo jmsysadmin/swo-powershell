@@ -12,14 +12,13 @@
 #>
 
 Param (
-
 	[Switch]
-	$NoNCM,
+	$NoVMan,
+	#Skips VMware Exports if you don't have NCM
+	[Switch]
+	$NoNCM
 	#Skips Network Gear Exports if you don't have NCM
-
 )
-
-
 
 Function Get-ScriptDirectory {
 	[OutputType([string])]
@@ -40,8 +39,8 @@ Try {
 
 [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
 $SwisServer = [Microsoft.VisualBasic.Interaction]::InputBox("What Orion Server Are you connecting to?", "Orion Server Name")
-$Creds = Get-Credential
-$Swis = Connect-Swis $SwisServer -Credential $Creds
+$Credentials = Get-Credential
+$Swis = Connect-Swis -hostname $SwisServer -Credential $Credentials
 
 $scriptfolder = Get-ScriptDirectory
 
@@ -159,7 +158,17 @@ $Server_Windows_query = "SELECT
 ,   N.NodeID 
 FROM Orion.Nodes N 
 where N.MachineType like 'Windows%Server%' or N.MachineType like 'Windows%Domain Controller%'"
-$Network_Device_query = "SELECT
+$Server_AIX_result = Get-SwisData $swis $Server_AIX_query
+$Server_Esxi_result = Get-SwisData $swis $Server_Esxi_query
+$Server_Linux_result = Get-SwisData $swis $Server_Linux_query
+$Server_Windows_result = Get-SwisData $swis $Server_Windows_query
+$Server_AIX_result | Export-Csv -Path "$scriptfolder\Server_AIX.csv"
+$Server_Esxi_result | Export-Csv -Path "$scriptfolder\Server_Esxi.csv"
+$Server_Linux_result | Export-Csv -Path "$scriptfolder\Server_Linux.csv"
+$Server_Windows_result | Export-Csv -Path "$scriptfolder\Server_Windows.csv"
+
+If (!$NoNCM){
+	$Network_Device_query = "SELECT
   NCM_EP.Node.NodeCaption
 , NCM_EP.Node.AgentIP
 , NCM_EP.Node.MachineType
@@ -185,7 +194,12 @@ Where
     and EntityClass not like '9' 
     and EntityClass not like '5'
     and EntityClass not like '7'"
-$Vmware_Hosts_query = "SELECT 
+	$Network_Device_result = Get-SwisData $swis $Network_Device_query
+	$Network_Device_result | Export-Csv -Path "$scriptfolder\Network_Devices.csv"
+}
+
+If (!$NoVMan){
+	$Vmware_Hosts_query = "SELECT 
     N.VCenter.DataCenters.Clusters.Hosts.HostID
 ,   N.VCenter.DataCenters.Clusters.Hosts.NodeID
 ,   N.VCenter.DataCenters.Clusters.Hosts.HostName
@@ -213,7 +227,7 @@ $Vmware_Hosts_query = "SELECT
 ,   N.VCenter.DataCenters.Clusters.Hosts.VmRunningCount
 FROM Orion.Nodes N 
 Where N.VCenter.DataCenters.Clusters.Hosts.HostID > 0"
-$Vmware_Clusters_query = "SELECT 
+	$Vmware_Clusters_query = "SELECT 
     N.VCenter.DataCenters.Clusters.ClusterID
 ,   N.VCenter.DataCenters.Clusters.DataCenterID
 ,   N.VCenter.DataCenters.Clusters.Name
@@ -226,7 +240,7 @@ $Vmware_Clusters_query = "SELECT
 ,   N.VCenter.DataCenters.Clusters.DatastoreUsedSpace
 FROM Orion.Nodes N 
 Where N.VCenter.DataCenters.Clusters.ClusterID > 0"
-$Vmware_DataCenters_query = "SELECT 
+	$Vmware_DataCenters_query = "SELECT 
     N.VCenter.DataCenters.DataCenterID
 ,   N.VCenter.DataCenters.ManagedObjectID
 ,   N.VCenter.DataCenters.VCenterID
@@ -241,7 +255,7 @@ $Vmware_DataCenters_query = "SELECT
 ,   N.VCenter.DataCenters.DetailsUrl
 FROM Orion.Nodes N 
 Where N.VCenter.DataCenters.DataCenterID > 0"
-$Vmware_Datastores_query = "SELECT 
+	$Vmware_Datastores_query = "SELECT 
     N.VCenter.DataCenters.Clusters.DataStores.DataStoreID
 ,   N.VCenter.DataCenters.Clusters.DataStores.DataStoreIdentifier
 ,   N.VCenter.DataCenters.Clusters.DataStores.Name
@@ -255,32 +269,21 @@ $Vmware_Datastores_query = "SELECT
 ,   N.VCenter.DataCenters.Clusters.ClusterID
 FROM Orion.Nodes N 
 Where N.VCenter.DataCenters.Clusters.DataStores.DataStoreID > 0"
-$Vmware_relationships_query = "SELECT 
+	$Vmware_relationships_query = "SELECT 
     N.VCenter.VCenterID
 ,   N.VCenter.DataCenters.DataCenterID
 ,   N.VCenter.DataCenters.Clusters.ClusterID
 ,    N.VCenter.DataCenters.Clusters.DataStores.DataStoreID
 FROM Orion.Nodes N 
 Where N.VCenter.DataCenters.Clusters.DataStores.DataStoreID > 0"
-
-$Server_AIX_result           = Get-SwisData $swis $Server_AIX_query
-$Server_Esxi_result          = Get-SwisData $swis $Server_Esxi_query
-$Server_Linux_result         = Get-SwisData $swis $Server_Linux_query
-$Server_Windows_result       = Get-SwisData $swis $Server_Windows_query
-$Network_Device_result       = Get-SwisData $swis $Network_Device_query
-$Vmware_Hosts_result         = Get-SwisData $swis $Vmware_Hosts_query
-$Vmware_Clusters_result      = Get-SwisData $swis $Vmware_Clusters_query
-$Vmware_DataCenters_result   = Get-SwisData $swis $Vmware_DataCenters_query
-$Vmware_Datastores_result    = Get-SwisData $swis $Vmware_Datastores_query
-$Vmware_relationships_result = Get-SwisData $swis $Vmware_relationships_query
-
-$Server_AIX_result | Export-Csv -Path "$scriptfolder\Server_AIX.csv"
-$Server_Esxi_result | Export-Csv -Path "$scriptfolder\Server_Esxi.csv"
-$Server_Linux_result | Export-Csv -Path "$scriptfolder\Server_Linux.csv"
-$Server_Windows_result | Export-Csv -Path "$scriptfolder\Server_Windows.csv"
-$Network_Device_result | Export-Csv -Path "$scriptfolder\Network_Devices.csv"
-$Vmware_Hosts_result | Export-Csv -Path "$scriptfolder\Vmware_Hosts.csv"
-$Vmware_Clusters_result | Export-Csv -Path "$scriptfolder\Vmware_Clusters.csv"
-$Vmware_DataCenters_result | Export-Csv -Path "$scriptfolder\Vmware_DataCenters.csv"
-$Vmware_Datastores_result | Export-Csv -Path "$scriptfolder\Vmware_Datastores.csv"
-$Vmware_relationships_result | Export-Csv -Path "$scriptfolder\Vmware_relationships.csv"
+	$Vmware_Hosts_result = Get-SwisData $swis $Vmware_Hosts_query
+	$Vmware_Clusters_result = Get-SwisData $swis $Vmware_Clusters_query
+	$Vmware_DataCenters_result = Get-SwisData $swis $Vmware_DataCenters_query
+	$Vmware_Datastores_result = Get-SwisData $swis $Vmware_Datastores_query
+	$Vmware_relationships_result = Get-SwisData $swis $Vmware_relationships_query
+	$Vmware_Hosts_result | Export-Csv -Path "$scriptfolder\Vmware_Hosts.csv"
+	$Vmware_Clusters_result | Export-Csv -Path "$scriptfolder\Vmware_Clusters.csv"
+	$Vmware_DataCenters_result | Export-Csv -Path "$scriptfolder\Vmware_DataCenters.csv"
+	$Vmware_Datastores_result | Export-Csv -Path "$scriptfolder\Vmware_Datastores.csv"
+	$Vmware_relationships_result | Export-Csv -Path "$scriptfolder\Vmware_relationships.csv"
+}
