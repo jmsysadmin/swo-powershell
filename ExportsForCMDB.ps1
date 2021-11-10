@@ -11,6 +11,16 @@
 		can be imported into a CMDB in csv files.
 #>
 
+Param (
+
+	[Switch]
+	$NoNCM,
+	#Skips Network Gear Exports if you don't have NCM
+
+)
+
+
+
 Function Get-ScriptDirectory {
 	[OutputType([string])]
 	Param ()
@@ -30,15 +40,8 @@ Try {
 
 [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
 $SwisServer = [Microsoft.VisualBasic.Interaction]::InputBox("What Orion Server Are you connecting to?", "Orion Server Name")
-
-Try {
-	$swis = Connect-Swis $SwisServer -Trusted 
-} Catch {
-	$SwisServer = [Microsoft.VisualBasic.Interaction]::InputBox("What Orion Server Are you connecting to?", "Orion Server Name")
-	$Creds = Get-Credential
-	$Swis = Connect-Swis $SwisServer -Credential $Creds
-}
-
+$Creds = Get-Credential
+$Swis = Connect-Swis $SwisServer -Credential $Creds
 
 $scriptfolder = Get-ScriptDirectory
 
